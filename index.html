@@ -1,0 +1,584 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Flying Football - NFL Edition</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        body {
+            font-family: Arial, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            overflow: hidden;
+            user-select: none;
+            width: 100vw;
+            height: 100vh;
+        }
+        #gameCanvas {
+            display: block;
+            cursor: pointer;
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100vw;
+            height: 100vh;
+            background: linear-gradient(180deg, #87CEEB 0%, #98D8E8 100%);
+        }
+        .hud {
+            position: absolute;
+            top: 20px;
+            left: 20px;
+            color: white;
+            font-weight: bold;
+            text-shadow: 3px 3px 6px rgba(0,0,0,0.8);
+            pointer-events: none;
+            z-index: 10;
+        }
+        .score-display {
+            font-size: 36px;
+            margin-bottom: 10px;
+        }
+        .timer-display {
+            font-size: 20px;
+            color: #FF6B6B;
+            background: rgba(0,0,0,0.7);
+            padding: 10px 15px;
+            border-radius: 10px;
+            border: 2px solid #FF6B6B;
+            display: none;
+        }
+        .start-screen {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0,0,0,0.9);
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            color: white;
+            text-align: center;
+            pointer-events: all;
+            z-index: 50;
+        }
+        .start-screen h1 {
+            font-size: 72px;
+            margin-bottom: 20px;
+            text-shadow: 4px 4px 8px rgba(0,0,0,0.8);
+            background: linear-gradient(45deg, #FFD700, #FF6B6B);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+        .mode-button {
+            background: linear-gradient(45deg, #667eea, #764ba2);
+            color: white;
+            border: none;
+            padding: 15px 25px;
+            border-radius: 15px;
+            cursor: pointer;
+            font-weight: bold;
+            font-size: 16px;
+            margin: 10px;
+            transition: all 0.3s ease;
+        }
+        .mode-button:hover {
+            transform: translateY(-3px);
+        }
+        .mode-button.selected {
+            background: linear-gradient(45deg, #FFD700, #FFA500);
+            color: #333;
+        }
+        button {
+            background: linear-gradient(45deg, #FFD700, #FFA500);
+            color: #333;
+            border: none;
+            padding: 20px 40px;
+            border-radius: 15px;
+            cursor: pointer;
+            font-weight: bold;
+            font-size: 24px;
+            transition: all 0.3s ease;
+            margin: 10px;
+        }
+        button:hover {
+            transform: translateY(-3px);
+        }
+        .game-over {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            text-align: center;
+            color: white;
+            background: rgba(0,0,0,0.95);
+            padding: 50px;
+            border-radius: 20px;
+            display: none;
+            pointer-events: all;
+            border: 3px solid #FFD700;
+            z-index: 100;
+        }
+        .team-selector {
+            background: rgba(255,255,255,0.1);
+            padding: 20px;
+            border-radius: 15px;
+            margin: 20px 0;
+            border: 2px solid #FFD700;
+        }
+        select {
+            width: 100%;
+            padding: 12px;
+            border-radius: 8px;
+            border: 2px solid #ddd;
+            font-size: 16px;
+            background: white;
+        }
+        .instructions {
+            position: absolute;
+            bottom: 30px;
+            left: 30px;
+            color: white;
+            font-size: 18px;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.8);
+            pointer-events: none;
+            z-index: 15;
+        }
+    </style>
+</head>
+<body>
+    <canvas id="gameCanvas"></canvas>
+
+    <div class="hud">
+        <div class="score-display">Score: <span id="scoreValue">0</span></div>
+        <div class="timer-display" id="timerDisplay">Time: <span id="timerValue">1:00</span></div>
+    </div>
+
+    <div class="instructions">
+        🏈 Click, Space, or Touch to fly! Navigate through goalposts! 🏈
+    </div>
+
+    <div class="start-screen" id="startScreen">
+        <h1>🏈 FLYING FOOTBALL 🏈</h1>
+        <h2 style="margin-bottom: 30px;">NFL EDITION</h2>
+
+        <div>
+            <button class="mode-button selected" onclick="selectMode('classic')">🏆 Classic</button>
+            <button class="mode-button" onclick="selectMode('timeAttack')">⏱️ Time Attack</button>
+        </div>
+
+        <p style="font-size: 18px; margin: 20px 0; opacity: 0.8;" id="modeDescription">
+            Navigate through goalposts!
+        </p>
+
+        <div class="team-selector">
+            <h3 style="color: #FFD700; margin-bottom: 15px;">🏈 Choose Your NFL Team</h3>
+            <select id="backgroundTheme" onchange="updateBackground()">
+                <option value="chiefs">👑 Kansas City Chiefs</option>
+                <option value="cowboys">⭐ Dallas Cowboys</option>
+                <option value="packers">🧀 Green Bay Packers</option>
+                <option value="patriots">🏆 New England Patriots</option>
+                <option value="steelers">⚫ Pittsburgh Steelers</option>
+                <option value="ravens">🐦‍⬛ Baltimore Ravens</option>
+                <option value="seahawks">🦅 Seattle Seahawks</option>
+                <option value="niners">🔴 San Francisco 49ers</option>
+            </select>
+        </div>
+
+        <button onclick="startGame()">🚀 START GAME</button>
+    </div>
+
+    <div class="game-over" id="gameOverScreen">
+        <h2 style="font-size: 48px; margin-bottom: 20px;" id="gameOverTitle">🏈 GAME OVER! 🏈</h2>
+        <p style="font-size: 24px;">Final Score: <span id="finalScore">0</span></p>
+        <p style="font-size: 18px; margin: 15px 0; color: #FFD700;" id="gameOverMessage"></p>
+        <button onclick="restartGame()">🎮 PLAY AGAIN</button>
+        <button onclick="backToMenu()">🏠 Main Menu</button>
+    </div>
+
+    <script>
+        // Game variables
+        var canvas, ctx;
+        var gameMode = 'classic';
+        var gameState = 'menu';
+        var score = 0;
+        var level = 1;
+        var gameSpeed = 4;
+        var frameCount = 0;
+        var gameTimer = 0;
+        var goalposts = [];
+        var goalpostWidth = 30;
+        var goalpostGap = 200;
+        var backgroundTheme = 'chiefs';
+
+        // Player object
+        var player = {
+            x: 100,
+            y: 300,
+            width: 40,
+            height: 40,
+            velocity: 0,
+            gravity: 0.8,
+            jumpForce: -15,
+            rotation: 0
+        };
+
+        // Team colors
+        var teamColors = {
+            chiefs: ['#E31837', '#FFB81C'],
+            cowboys: ['#041E42', '#869397'],
+            packers: ['#203731', '#FFB612'],
+            patriots: ['#002244', '#C60C30'],
+            steelers: ['#FFB612', '#000000'],
+            ravens: ['#241773', '#000000'],
+            seahawks: ['#002244', '#69BE28'],
+            niners: ['#AA0000', '#B3995D']
+        };
+
+        // Initialize game
+        function init() {
+            canvas = document.getElementById('gameCanvas');
+            if (canvas) {
+                ctx = canvas.getContext('2d');
+                resizeCanvas();
+                window.addEventListener('resize', resizeCanvas);
+
+                canvas.addEventListener('click', jump);
+                canvas.addEventListener('touchstart', function(e) {
+                    e.preventDefault();
+                    jump();
+                });
+
+                document.addEventListener('keydown', function(e) {
+                    if (e.code === 'Space') {
+                        e.preventDefault();
+                        jump();
+                    }
+                });
+            }
+        }
+
+        function resizeCanvas() {
+            if (canvas) {
+                canvas.width = window.innerWidth;
+                canvas.height = window.innerHeight;
+                updateScaling();
+            }
+        }
+
+        function updateScaling() {
+            if (canvas) {
+                goalpostWidth = Math.max(20, canvas.width * 0.03);
+                goalpostGap = Math.max(150, canvas.height * 0.25);
+                player.x = canvas.width * 0.15;
+                player.y = canvas.height / 2;
+                player.width = Math.max(30, canvas.width * 0.04);
+                player.height = Math.max(30, canvas.width * 0.04);
+                player.gravity = Math.max(0.5, canvas.height * 0.0008);
+                player.jumpForce = Math.min(-10, -canvas.height * 0.02);
+            }
+        }
+
+        function selectMode(mode) {
+            gameMode = mode;
+            var buttons = document.querySelectorAll('.mode-button');
+            for (var i = 0; i < buttons.length; i++) {
+                buttons[i].classList.remove('selected');
+            }
+            if (event && event.target) {
+                event.target.classList.add('selected');
+            }
+
+            var desc = document.getElementById('modeDescription');
+            if (desc) {
+                if (mode === 'classic') {
+                    desc.textContent = 'Navigate through goalposts!';
+                } else if (mode === 'timeAttack') {
+                    desc.textContent = '60 seconds to score as many points as possible!';
+                }
+            }
+        }
+
+        function updateBackground() {
+            var select = document.getElementById('backgroundTheme');
+            if (select) {
+                backgroundTheme = select.value;
+            }
+        }
+
+        function startGame() {
+            var startScreen = document.getElementById('startScreen');
+            var timerDisplay = document.getElementById('timerDisplay');
+
+            if (startScreen) startScreen.style.display = 'none';
+
+            if (gameMode === 'timeAttack') {
+                gameTimer = 60 * 60;
+                if (timerDisplay) timerDisplay.style.display = 'block';
+                updateTimerDisplay();
+            } else {
+                if (timerDisplay) timerDisplay.style.display = 'none';
+                gameTimer = 0;
+            }
+
+            gameState = 'playing';
+            resetGame();
+            gameLoop();
+        }
+
+        function restartGame() {
+            var gameOverScreen = document.getElementById('gameOverScreen');
+            if (gameOverScreen) gameOverScreen.style.display = 'none';
+            startGame();
+        }
+
+        function backToMenu() {
+            var gameOverScreen = document.getElementById('gameOverScreen');
+            var startScreen = document.getElementById('startScreen');
+            var timerDisplay = document.getElementById('timerDisplay');
+
+            if (gameOverScreen) gameOverScreen.style.display = 'none';
+            if (startScreen) startScreen.style.display = 'flex';
+            if (timerDisplay) timerDisplay.style.display = 'none';
+            gameState = 'menu';
+        }
+
+        function resetGame() {
+            score = 0;
+            level = 1;
+
+            if (canvas) {
+                player.x = canvas.width * 0.15;
+                player.y = canvas.height / 2;
+            }
+
+            player.velocity = 0;
+            player.rotation = 0;
+            goalposts = [];
+            frameCount = 0;
+
+            if (gameMode === 'timeAttack') {
+                gameTimer = 60 * 60;
+                updateTimerDisplay();
+            }
+
+            updateUI();
+        }
+
+        function updateTimerDisplay() {
+            if (gameMode === 'timeAttack') {
+                var timerElement = document.getElementById('timerValue');
+                if (timerElement) {
+                    var seconds = Math.ceil(gameTimer / 60);
+                    var minutes = Math.floor(seconds / 60);
+                    var remainingSeconds = seconds % 60;
+                    var timeString = minutes + ':' + (remainingSeconds < 10 ? '0' : '') + remainingSeconds;
+                    timerElement.textContent = timeString;
+                }
+            }
+        }
+
+        function updateUI() {
+            var scoreElement = document.getElementById('scoreValue');
+            if (scoreElement) scoreElement.textContent = score;
+        }
+
+        function jump() {
+            if (gameState === 'playing') {
+                player.velocity = player.jumpForce;
+                player.rotation = -0.3;
+            }
+        }
+
+        function gameOver() {
+            gameState = 'gameOver';
+
+            var gameOverTitle = document.getElementById('gameOverTitle');
+            var gameOverMessage = document.getElementById('gameOverMessage');
+
+            if (gameOverTitle && gameOverMessage) {
+                if (gameMode === 'timeAttack' && gameTimer <= 0) {
+                    gameOverTitle.textContent = '⏰ TIME\'S UP! ⏰';
+                    gameOverMessage.textContent = 'You scored ' + score + ' points in 60 seconds!';
+                } else if (gameMode === 'timeAttack') {
+                    gameOverTitle.textContent = '🏈 CRASHED! 🏈';
+                    gameOverMessage.textContent = 'You crashed with ' + Math.ceil(gameTimer / 60) + ' seconds remaining!';
+                } else {
+                    gameOverTitle.textContent = '🏈 GAME OVER! 🏈';
+                    gameOverMessage.textContent = 'Great game! Try to beat your high score!';
+                }
+            }
+
+            var finalScoreElement = document.getElementById('finalScore');
+            var gameOverScreen = document.getElementById('gameOverScreen');
+
+            if (finalScoreElement) finalScoreElement.textContent = score;
+            if (gameOverScreen) gameOverScreen.style.display = 'block';
+        }
+
+        function gameLoop() {
+            if (gameState !== 'playing' || !canvas || !ctx) return;
+
+            frameCount++;
+
+            if (gameMode === 'timeAttack') {
+                gameTimer--;
+                if (frameCount % 10 === 0) {
+                    updateTimerDisplay();
+                }
+
+                if (gameTimer <= 0) {
+                    gameOver();
+                    return;
+                }
+            }
+
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+            var colors = teamColors[backgroundTheme] || ['#87CEEB', '#98D8E8'];
+            var gradient = ctx.createLinearGradient(0, 0, 0, canvas.height);
+            gradient.addColorStop(0, colors[0]);
+            gradient.addColorStop(1, colors[1]);
+            ctx.fillStyle = gradient;
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+            ctx.fillStyle = 'rgba(34, 139, 34, 0.4)';
+            ctx.fillRect(0, canvas.height - 120, canvas.width, 120);
+
+            ctx.strokeStyle = 'rgba(255, 255, 255, 0.9)';
+            ctx.lineWidth = 3;
+
+            var yardSpacing = canvas.width * 0.1;
+            var fieldOffset = (frameCount * gameSpeed * 0.5) % yardSpacing;
+
+            for (var x = -fieldOffset; x < canvas.width + yardSpacing; x += yardSpacing) {
+                ctx.beginPath();
+                ctx.moveTo(x, canvas.height - 120);
+                ctx.lineTo(x, canvas.height);
+                ctx.stroke();
+            }
+
+            if (frameCount % 180 === 0) {
+                var minHeight = canvas.height * 0.1;
+                var maxHeight = canvas.height * 0.4;
+                var topHeight = Math.random() * (maxHeight - minHeight) + minHeight;
+
+                goalposts.push({
+                    x: canvas.width,
+                    topHeight: topHeight,
+                    bottomY: topHeight + goalpostGap,
+                    width: goalpostWidth,
+                    passed: false,
+                    color: '#FFD700',
+                    strokeColor: '#DAA520'
+                });
+            }
+
+            for (var i = 0; i < goalposts.length; i++) {
+                var goalpost = goalposts[i];
+                goalpost.x -= gameSpeed;
+
+                if (!goalpost.passed && goalpost.x + goalpost.width < player.x) {
+                    goalpost.passed = true;
+                    goalpost.color = '#FF4444';
+                    goalpost.strokeColor = '#CC0000';
+                    score++;
+                    if (score % 10 === 0) level++;
+                }
+            }
+
+            goalposts = goalposts.filter(function(goalpost) {
+                return goalpost.x + goalpost.width > 0;
+            });
+
+            for (var i = 0; i < goalposts.length; i++) {
+                var goalpost = goalposts[i];
+                ctx.fillStyle = goalpost.color;
+                ctx.strokeStyle = goalpost.strokeColor;
+                ctx.lineWidth = 4;
+
+                var crossbarHeight = 20;
+
+                ctx.fillRect(goalpost.x, 0, goalpost.width, goalpost.topHeight - crossbarHeight);
+                ctx.strokeRect(goalpost.x, 0, goalpost.width, goalpost.topHeight - crossbarHeight);
+
+                ctx.fillRect(goalpost.x - 15, goalpost.topHeight - crossbarHeight, goalpost.width + 30, crossbarHeight);
+                ctx.strokeRect(goalpost.x - 15, goalpost.topHeight - crossbarHeight, goalpost.width + 30, crossbarHeight);
+
+                ctx.fillRect(goalpost.x, goalpost.bottomY + crossbarHeight, goalpost.width, canvas.height - goalpost.bottomY - crossbarHeight);
+                ctx.strokeRect(goalpost.x, goalpost.bottomY + crossbarHeight, goalpost.width, canvas.height - goalpost.bottomY - crossbarHeight);
+
+                ctx.fillRect(goalpost.x - 15, goalpost.bottomY, goalpost.width + 30, crossbarHeight);
+                ctx.strokeRect(goalpost.x - 15, goalpost.bottomY, goalpost.width + 30, crossbarHeight);
+
+                ctx.lineWidth = 3;
+                ctx.beginPath();
+                ctx.moveTo(goalpost.x + 3, goalpost.topHeight - crossbarHeight);
+                ctx.lineTo(goalpost.x + 3, goalpost.topHeight - crossbarHeight - 40);
+                ctx.stroke();
+
+                ctx.beginPath();
+                ctx.moveTo(goalpost.x + goalpost.width - 3, goalpost.topHeight - crossbarHeight);
+                ctx.lineTo(goalpost.x + goalpost.width - 3, goalpost.topHeight - crossbarHeight - 40);
+                ctx.stroke();
+            }
+
+            player.velocity += player.gravity;
+            player.y += player.velocity;
+            player.rotation = Math.min(Math.max(player.velocity * 0.05, -0.5), 0.8);
+
+            ctx.save();
+            ctx.translate(player.x + player.width/2, player.y + player.height/2);
+            ctx.rotate(player.rotation);
+            ctx.fillStyle = '#8B4513';
+
+            ctx.beginPath();
+            ctx.ellipse(0, 0, player.width/2, player.height/2 * 1.4, 0, 0, Math.PI * 2);
+            ctx.fill();
+
+            ctx.strokeStyle = 'white';
+            ctx.lineWidth = 2;
+            ctx.beginPath();
+            ctx.moveTo(0, -player.height * 0.4);
+            ctx.lineTo(0, player.height * 0.4);
+            ctx.stroke();
+
+            ctx.lineWidth = 1;
+            for (var i = -player.height * 0.3; i <= player.height * 0.3; i += player.height * 0.15) {
+                ctx.beginPath();
+                ctx.moveTo(-player.width * 0.15, i);
+                ctx.lineTo(player.width * 0.15, i);
+                ctx.stroke();
+            }
+            ctx.restore();
+
+            for (var i = 0; i < goalposts.length; i++) {
+                var goalpost = goalposts[i];
+                if (player.x + player.width > goalpost.x &&
+                    player.x < goalpost.x + goalpost.width) {
+                    if (player.y < goalpost.topHeight ||
+                        player.y + player.height > goalpost.bottomY) {
+                        gameOver();
+                        return;
+                    }
+                }
+            }
+
+            if (player.y + player.height > canvas.height || player.y < 0) {
+                gameOver();
+                return;
+            }
+
+            updateUI();
+            requestAnimationFrame(gameLoop);
+        }
+
+        window.addEventListener('load', init);
+    </script>
+</body>
+</html>
